@@ -1,0 +1,32 @@
+{% extends "navbar.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+Walletize
+{% endblock %}
+
+{% block content %}
+
+<!-- SEARCH BAR TOKEN -->
+
+<div class="index-home container-bg">
+  <div class="row col-md-6 offset-md-3">
+    <img class="rounded mx-auto d-block" alt="Responsive image" src="static/img/logo.png">
+  </div>
+  <div class="row col-md-6 offset-md-3">
+    <form id="search" method="POST" action="">
+      <fieldset>
+      <legend>Ricerca i metodi di pagamento di altri utenti tramite il loro $Token</legend>
+        <div class="inner-form">
+          <div id="search" class="input-field">
+            {{ form.hidden_tag() }}
+            {{ wtf.form_field(form.search, placeholder='$Token')}}
+            <button class="btn btn-lg btn-light btn-block col-md-4 offset-md-4 align-items-center" type="search"'">Cerca</button>
+          </div>
+        </div>
+      </fieldset>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

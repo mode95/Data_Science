@@ -1,0 +1,428 @@
+html {
+  line-height: 1.15;
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  background: #e0e0e0;
+  width: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #e9ecef;
+}
+
+article,
+aside,
+footer,
+header,
+nav,
+section {
+  display: block;
+}
+
+h1 {
+  font-size: 2em;
+  margin: 0.67em 0;
+}
+
+
+
+/* GESTIONE FORMS E CORREZIONI PER BROWSER
+   ========================================================================== */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: sans-serif;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+}
+
+button,
+input {
+  overflow: visible;
+}
+
+button,
+select {
+  text-transform: none;
+}
+
+button,
+html [type="button"],
+[type="reset"],
+[type="submit"] {
+  -webkit-appearance: button;
+}
+
+button::-moz-focus-inner,
+[type="button"]::-moz-focus-inner,
+[type="reset"]::-moz-focus-inner,
+[type="submit"]::-moz-focus-inner {
+  border-style: none;
+  padding: 0;
+}
+
+button:-moz-focusring,
+[type="button"]:-moz-focusring,
+[type="reset"]:-moz-focusring,
+[type="submit"]:-moz-focusring {
+  outline: 1px dotted ButtonText;
+}
+
+fieldset {
+  padding: 0.35em 0.75em 0.625em;
+}
+
+legend {
+  box-sizing: border-box;
+  color: inherit;
+  display: table;
+  max-width: 100%;
+  padding: 0;
+  white-space: normal;
+}
+
+html {
+  height: 100%;
+}
+
+fieldset {
+  margin: 0;
+  padding: 0;
+  -webkit-margin-start: 0;
+  -webkit-margin-end: 0;
+  -webkit-padding-before: 0;
+  -webkit-padding-start: 0;
+  -webkit-padding-end: 0;
+  -webkit-padding-after: 0;
+  border: 0;
+}
+
+legend {
+  margin: 0;
+  padding: 0;
+  display: block;
+  -webkit-padding-start: 0;
+  -webkit-padding-end: 0;
+}
+
+/* OVERWRITE BUTTONS BOOTSTRAP
+   ========================================================================== */
+.btn-group-lg>.btn, .btn-lg {
+    border-radius: 10rem;
+}
+
+.index-user .btn{
+  border-radius: 10rem;
+}
+
+/* OVERWRITE NAVBAR BOOTSTRAP
+   ========================================================================== */
+.navbar {
+    transition: all 0.4s;
+}
+
+.navbar .nav-link {
+    color: #fff;
+}
+
+
+.navbar .nav-link:hover,
+.navbar .nav-link:focus {
+    color: #fff;
+    text-decoration: none;
+}
+
+.navbar .navbar-brand {
+    color: #fff;
+}
+
+.navbar.active {
+    background: #fff;
+    box-shadow: 1px 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.navbar.active .nav-link {
+    color: #555;
+}
+
+.navbar.active .nav-link:hover,
+.navbar.active .nav-link:focus {
+    color: #555;
+    text-decoration: none;
+}
+
+.navbar.active .navbar-brand {
+    color: #555;
+}
+
+@media (max-width: 991.98px) {
+    .navbar {
+        background: #fff;
+    }
+
+    .navbar .navbar-brand, .navbar .nav-link {
+        color: #f28f3d;
+    }
+}
+
+.navbar .navbar-brand {
+    color: #f28f3d;
+}
+
+.my-bg-nav {
+    background-color: #272727!important;
+}
+
+/* CSS INDEX (SENZA ACCESSO)
+   ========================================================================== */
+.index-home {
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif;
+  background-image: linear-gradient(to right top, #f28f3d, #f0725f, #d9617c, #b25d8e, #835c91);
+  background-size: cover;
+  background-position: center center;
+  padding: 15px;
+}
+
+.index-home img {
+  padding-top: 15%;
+  width: 100%;
+}
+
+.index-home form {
+  padding-top: 10%;
+  width: 100%;
+}
+
+.index-home form legend {
+  font-size: 36px;
+  color: #fff;
+  font-weight: 800;
+  text-align: center;
+}
+
+.index-home form .inner-form {
+  width: 100%;
+  margin-bottom: 17px;
+}
+
+.index-home form .inner-form .input-field {
+  height: 70px;
+  width: 100%;
+  position: relative;
+}
+
+.index-home form .inner-form .input-field input {
+  height: 100%;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  background: #fff;
+  display: block;
+  width: 100%;
+  padding: 10px 32px 10px 15px;
+  font-size: 18px;
+  color: #666;
+  border-radius: 34px;
+}
+
+.index-home form .inner-form .input-field input.placeholder {
+  color: #ccc;
+  font-size: 20px;
+}
+
+.index-home form .inner-form .input-field input:-moz-placeholder {
+  color: #ccc;
+  font-size: 18px;
+}
+
+.index-home form .inner-form .input-field input::-webkit-input-placeholder {
+  color: #ccc;
+  font-size: 18px;
+}
+
+.index-home form .inner-form .input-field input:hover, .index-home form .inner-form .input-field input:focus {
+  box-shadow: none;
+  outline: 0;
+}
+
+.index-home form .inner-form .input-field input {
+    height: 50px;
+}
+
+@media screen and (max-width: 767px) {
+  .index-home form .inner-form .input-field {
+    margin-bottom: 20px;
+    height: 50px;
+  }
+  .index-home form .inner-form .input-field input {
+    padding-left: 55px;
+    font-size: 16px;
+  }
+}
+
+/*===== INDEX-USER  ======*/
+.index-user {
+  min-height: 60vh;
+  font-family: 'Poppins', sans-serif;
+  background-image: linear-gradient(to right top, #f28f3d, #f0725f, #d9617c, #b25d8e, #835c91);
+  background-size: cover;
+  background-position: center center;
+  padding-top: 5%;
+}
+
+.index-user img {
+  padding-top: 15%;
+  width: 100%;
+}
+
+.index-user form {
+  padding-top: 5%;
+  width: 100%;
+}
+
+.index-user form legend {
+  font-size: 36px;
+  color: #fff;
+  font-weight: 800;
+  text-align: center;
+}
+
+.index-user form .inner-form {
+  width: 100%;
+}
+
+.index-user form .inner-form .input-field {
+  height: 70px;
+  width: 100%;
+  position: relative;
+}
+
+.index-user form .inner-form .input-field input {
+  height: 100%;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  background: #fff;
+  display: block;
+  width: 100%;
+  padding: 10px 32px 10px 15px;
+  font-size: 18px;
+  color: #666;
+  border-radius: 34px;
+}
+
+.index-user form .inner-form .input-field input.placeholder {
+  color: #ccc;
+  font-size: 20px;
+}
+
+.index-user form .inner-form .input-field input:-moz-placeholder {
+  color: #ccc;
+  font-size: 18px;
+}
+
+.index-user form .inner-form .input-field input::-webkit-input-placeholder {
+  color: #ccc;
+  font-size: 18px;
+}
+
+.index-user form .inner-form .input-field input:hover, .index-user form .inner-form .input-field input:focus {
+  box-shadow: none;
+  outline: 0;
+}
+
+.index-user form .inner-form .input-field input {
+    height: 50px;
+}
+
+@media screen and (max-width: 767px) {
+  .index-user form .inner-form .input-field {
+    margin-bottom: 20px;
+    height: 50px;
+  }
+  .index-user form .inner-form .input-field input {
+    padding-left: 55px;
+    font-size: 16px;
+  }
+}
+
+.index-user .btn-light{
+    color: #fff;
+    background-color: #ed383352;
+    background-image: none;
+    border-color: #6c757d;
+}
+
+.index-user .btn-light:hover, .btn-light:focus, .btn-light:active, .btn-light.active, .open>.dropdown-toggle.btn-light {
+    color: #f28f3d;
+    background-color: #ffffffc4;
+    border-color: #6c757d; /*set the color you want here*/
+    transition-duration: 0.3s;
+}
+
+.index-user .btn-primary{
+    color: #fff;
+    background-color: #f28f3d;
+    background-image: none;
+    border-color: #6c757d;
+}
+
+.index-user .btn-primary:hover, .btn-primary:focus, .btn-primary:active, .btn-primary.active, .open>.dropdown-toggle.btn-primary {
+    color: #f28f3d;
+    background-color: #ffffffc4;
+    border-color: #6c757d; /*set the color you want here*/
+    transition-duration: 0.3s;
+}
+
+/* SEARCH BAR
+   ========================================================================== */
+#result{
+  width: 100%;
+  height: 100%;
+  margin-top: 5%;
+  margin-bottom: 5%;
+  padding-bottom: 5%;
+  background-color: #e9ecef9e;
+  font-family: 'Poppins', sans-serif;
+}
+
+.block-result{
+  border-left-style: inset;
+  border-left-color: #ff8826;
+  margin-bottom: 3%;
+}
+
+/* LOGIN E SIGN UP PAGE
+   ========================================================================== */
+#login .container #login-row #login-column #login-box {
+  margin-top: 120px;
+  margin-bottom: 120px;
+  max-width: 600px;
+  height: auto;
+  border: 1px solid #9C9C9C;
+  background-color: #EAEAEA;
+  padding-bottom: 20px;
+}
+
+#login .container #login-row #login-column #login-box .btn-outline-secondary {
+    color: #fff;
+    background-color: #f28f3d;
+    background-image: none;
+    border-color: #6c757d;
+}
+
+#login .container #login-row #login-column #login-box .btn-outline-secondary:hover, .btn-outline-secondary:focus, .btn-outline-secondary:active, .btn-outline-secondary.active, .open>.dropdown-toggle.btn-outline-secondary {
+    color: #f28f3d;
+    background-color: #fff;
+    border-color: #6c757d; /*set the color you want here*/
+    transition-duration: 0.3s;
+}
+
+.orange-color{
+  color: #f28f3d;
+}

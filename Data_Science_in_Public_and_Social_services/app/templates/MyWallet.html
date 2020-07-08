@@ -1,0 +1,91 @@
+{% extends "navbar_login.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+MyWallet
+{% endblock %}
+
+{% block content %}
+<br><br>
+<div class="jumbotron">
+  <div class = "row">
+
+    <!-- Messaggio di link copiato -->
+    <div class = "col-md-6 offset-md-3">
+      <div class="container" style="display:none;" id="myAlert">
+          <div class="alert alert-success alert-dismissable" id="myAlert2">
+              <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+              Link copiato!
+          </div>
+      </div>
+
+      <h1 style="padding-bottom: 3%"> I tuoi metodi di pagamento </h1>
+
+      {% if data['metodi']|length == 0 %}
+        <div class="row" style= "margin-bottom: 2%">
+          <div class="col-md-12">
+            <h3 style="color: grey"> Non hai ancora creato nessun metodo di pagamento </h3>
+          </div>
+        </div>
+
+      {% else %}
+        {% for metodi in data['metodi']%}
+          <div class="row block-result" style="margin-bottom: 2%">
+            <div class = "col-md-12" style="margin-bottom: 2%">
+
+              {% if metodi['type'] == 'IBAN' %}
+
+                <h3> {{ metodi['type'] }} </h3>
+                <p> Beneficiario: {{ metodi['beneficiario'] }} </p>
+                <p> Causale: {{ metodi['causale'] }} </p>
+                <p> IBAN: {{ metodi['IBAN'] }} </p>
+                {% set id_method = metodi['_id'] %}
+                {% set url_copy = "http://localhost:5000/" + data['token'] + "/" + id_method|string %}
+                <a class="btn btn-outline-danger" href="/MyWallet/remove/{{id_method}}"><i class="fa fa-trash"></i>  Rimuovi</a>
+
+                <button type="button" onclick="showAlert(); CopyUrlMethod( '{{url_copy}}');" class = 'btn btn-outline-primary'>
+                  <i class="fa fa-share"></i>  Condividi </button>
+
+
+              {% endif %}
+
+              {% if metodi['type'] == 'PayPal' %}
+
+                <h3> {{ metodi['type'] }} </h3>
+                Link: <a href={{ "https://www." +  metodi['link'] }}>{{ metodi['link'] }} </a>
+                <p></p>
+                {% set id_method = metodi['_id'] %}
+                {% set url_copy = "http://localhost:5000/" + data['token'] + "/" + id_method|string %}
+                <a class="btn btn-outline-danger" href="/MyWallet/remove/{{id_method}}"><i class="fa fa-trash"></i>  Rimuovi</a>
+
+                <button type="button" onclick="showAlert(); CopyUrlMethod( '{{url_copy}}');" class = 'btn btn-outline-primary'>
+                  <i class="fa fa-share"></i>  Condividi </button>
+
+              {% endif %}
+
+              {% if metodi['type'] == 'Satispay' %}
+
+                <h3> {{ metodi['type'] }} </h3>
+                <p> Cellulare: {{ metodi['cellulare'] }} </p>
+                {% set id_method = metodi['_id'] %}
+                {% set url_copy = "http://localhost:5000/" + data['token'] + "/" + id_method|string %}
+                <a class="btn btn-outline-danger" href="/MyWallet/remove/{{id_method}}"><i class="fa fa-trash"></i>  Rimuovi</a>
+
+                <button type="button" onclick="showAlert(); CopyUrlMethod( '{{url_copy}}');" class = 'btn btn-outline-primary'>
+                  <i class="fa fa-share"></i>  Condividi </button>
+
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+      <div class = "col text-center">
+        <h4 style="color: grey"> Aggiungi metodo di pagamento </h4>
+        <a class="btn btn-outline-secondary" href="/creaMetodo"><i class="fa fa-plus-circle"></i>  Aggiugi</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

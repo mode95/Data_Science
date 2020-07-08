@@ -1,0 +1,29 @@
+{%extends "navbar.html"%}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+Sign Up
+{% endblock %}
+
+{% block content %}
+  <br><br>
+  <div id = "login">
+    <div class="container">
+      <div id="login-row" class="row justify-content-center align-items-center">
+        <div id="login-column" class="col-md-6">
+          <div id="login-box" class="col-md-12">
+            <form class="form-signin" method="POST" action="/signup">
+              <h2 class="text-center">Sign Up</h2>
+              {{ form.hidden_tag() }}
+              {{ wtf.form_field(form.username) }}
+              {{ wtf.form_field(form.email) }}
+              {{ wtf.form_field(form.password) }}
+              {{ wtf.form_field(form.token) }}
+              <button class="btn btn-lg btn-outline-secondary btn-block col-md-4 offset-md-4" type="submit">Sign Up</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "navbar.html" %}
+
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+Info dati
+{% endblock %}
+
+{% block content %}
+<div class="container-bg" style="background-color:#e0e0e0;"><br><br><br><br><br><br></div>
+
+<div class="jumbotron">
+  <div class = "row">
+    <div class = "col-md-6 offset-md-3">
+      <h2 style="padding-bottom: 3%"> Metodo di pagamento condiviso da {{user}} </h2>
+
+      {% if data|length == 0 %}
+        <div class="row" style= "margin-bottom: 2%">
+          <div class="col-md-12">
+            <h4 style="color: grey"> ERROR NESSUN METODO DI PAGAMANETO TROVATO</h4>
+          </div>
+        </div>
+
+      {% else %}
+        <div class="row">
+          <div class = "col-md-12" style="margin-bottom: 2%">
+            {% if data[0]['type'] == 'IBAN' %}
+              <h4> {{ data[0]['type'] }} </h4>
+              <p> Beneficiario: {{ data[0]['beneficiario'] }} </p>
+              <p> Causale: {{ data[0]['causale'] }} </p>
+              <p> IBAN: {{ data[0]['IBAN'] }} </p>
+            {% endif %}
+
+            {% if data[0]['type'] == 'PayPal' %}
+              <h4> {{ data[0]['type'] }} </h4>
+              Link: <a href={{ "https://www." +  data[0]['link'] }}>{{ data[0]['link'] }} </a>
+            {% endif %}
+
+            {% if data[0]['type'] == 'Satispay' %}
+              <h4> {{ data[0]['type'] }} </h4>
+              <p> Cellulare: {{ data[0]['cellulare'] }}<p>
+            {% endif %}
+
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

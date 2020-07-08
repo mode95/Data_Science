@@ -1,0 +1,54 @@
+{% extends "navbar.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+Crea campagna
+{% endblock %}
+
+{% block content %}
+<div class="container-bg" style="background-color:#e0e0e0;"><br><br><br><br><br><br></div>
+
+<div class="jumbotron">
+  <div class = "row">
+    <div class = "col-md-6 offset-md-3">
+      <h1 style="padding-bottom: 3%"> Metodi di pagamento condivisi da {{data['user']}} </h1>
+
+      {% if data['metodi']|length == 0 %}
+        <div class="row" style= "margin-bottom: 2%">
+          <div class="col-md-12">
+            <h3 style="color: grey"> {{data['user']}} non ha inserito nessun metodo di pagamento </h3>
+          </div>
+        </div>
+
+      {% else %}
+        {% for metodi in data['metodi']%}
+          <div class="row" style="padding-bottom: 3%">
+            <div class = "col-md-12">
+
+              {% if metodi['type'] == 'IBAN' %}
+                <h3> {{ metodi['type'] }} </h3>
+                <p> Beneficiario: {{ metodi['beneficiario'] }} </p>
+                <p> Causale: {{ metodi['causale'] }} </p>
+                <p> IBAN: {{ metodi['IBAN'] }} </p>
+              {% endif %}
+
+              {% if metodi['type'] == 'PayPal' %}
+                <h3> {{ metodi['type'] }} </h3>
+                Link: <a href={{ "https://www." +  metodi['link'] }}>{{ metodi['link'] }} </a>
+                <p />
+              {% endif %}
+
+              {% if metodi['type'] == 'Satispay' %}
+                <h3> {{ metodi['type'] }} </h3>
+                <p> Cellulare: {{metodi['cellulare']}} <p>
+              {% endif %}
+
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

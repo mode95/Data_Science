@@ -1,0 +1,67 @@
+{% extends "navbar_login.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}
+Nuovo metodo
+{% endblock %}
+
+{% block content %}
+<div class="container-bg" style="background-color:#e0e0e0;"><br><br><br><br><br><br></div>
+
+<div class="jumbotron">
+  <div class="container">
+    <div style="margin-bottom: 5%" class = "row">
+      <div class = "col-md-6 offset-md-3">
+        <form method="POST" action="/creaMetodo">
+          <h1>Crea un nuovo metodo di pagamento!</h1>
+          {{ form.hidden_tag() }}
+          {{ wtf.form_field(form.dropdown) }}
+          <div class="text-center">
+            <button class="btn btn-lg btn-outline-secondary btn-block col-md-4 offset-md-4 align-center" type="submit">Crea</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+
+  {% if form_IBAN %}
+  <div class = "row">
+    <div class = "col-md-6 offset-md-3">
+      <form method="POST" action="/creaMetodo/IBAN">
+        {{ form_IBAN.hidden_tag() }}
+        {{ wtf.form_field(form_IBAN.beneficiario) }}
+        {{ wtf.form_field(form_IBAN.causale) }}
+        {{ wtf.form_field(form_IBAN.IBAN) }}
+        <button class="btn btn-lg btn-outline-secondary btn-block col-md-4 offset-md-4" type="submit">Crea</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if form_paypal %}
+  <div class = "row">
+    <div class = "col-md-6 offset-md-3">
+      <form method="POST" action="/creaMetodo/PayPal">
+        {{ form_paypal.hidden_tag() }}
+        {{ wtf.form_field(form_paypal.link) }}
+        <button class="btn btn-lg btn-outline-secondary btn-block col-md-4 offset-md-4" type="submit">Crea</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if form_satispay %}
+  <div class = "row">
+    <div class = "col-md-6 offset-md-3">
+      <form method="POST" action="/creaMetodo/Satispay">
+        {{ form_satispay.hidden_tag() }}
+        {{ wtf.form_field(form_satispay.numero) }}
+        <button class="btn btn-lg btn-outline-secondary btn-block col-md-4 offset-md-4" type="submit">Crea</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  </div>
+</div>
+
+{% endblock %}
