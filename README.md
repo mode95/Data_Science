@@ -1,2 +1,2 @@
-# Data_Science
+# Data-Science
 Raccolta progetti laurea Data Science
