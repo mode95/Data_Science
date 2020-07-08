@@ -1,0 +1,1 @@
+Assignment e progetto Digital Signal and Image Management
