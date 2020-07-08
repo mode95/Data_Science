@@ -1,0 +1,1 @@
+Progetto SQL per Business Intelligence.
