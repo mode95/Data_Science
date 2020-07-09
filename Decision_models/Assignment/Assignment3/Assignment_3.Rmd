@@ -1,0 +1,346 @@
+---
+title: "Assignment 3"
+author: "Federico Manenti 790032"
+header-includes:
+  \usepackage{graphicx}
+  \graphicspath{ {immagini/} } 
+output:
+  prettydoc::html_pretty:
+    toc: yes
+    toc_depth: 5
+    theme: architect
+    highlight: github
+  html_notebook:
+    toc: yes
+    toc_depth: 5
+  html_document:
+    code_download: yes
+    highlight: textmate
+    theme: spacelab
+    toc: yes
+    toc_depth: 5
+  pdf_document:
+    toc: yes
+    toc_depth: 5
+    latex_engine: xelatex
+course: Decision Models
+---
+
+<style>
+body {
+text-align: justify
+}
+</style>
+
+
+```{r, include = F}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(magrittr) 
+library(Hmisc)
+library(kableExtra)
+library(lattice)
+library(optimx)
+```
+
+# Introduction
+
+Il problema proposto consiste nel trovare la posizione $(\chi; \nu)$ di un magazzino tale che minimizzi la distanza complessiva tra esso e 100 clienti. La posizione degli acquirenti è contenuta nel seguente dataset ed è data in coordinate $(x; y)$. I costi di costruzione del magazzino sono fissi e non dipendono dalla posizione in cui verrà costruito.
+ 
+
+```{r}
+df = read.csv("/home/federico/Scrivania/Università/decision_model/Assignment/Assignment_3/Testo/consumer_locations.csv")
+
+kable(df[1:5,], align = "c") %>%
+   kable_styling(bootstrap_options = "striped", full_width = F)
+```
+La distribuzione dei clienti è:
+
+```{r, fig.align = "center", fig.cap = "distribuzione clienti", echo=F}
+plot = ggplot(df, aes(x = x, y = y)) + 
+  geom_point(size = 1) +
+  theme_gray()
+plot
+```
+
+
+La distanza tra il magazzino e un cliente è:
+
+\begin{equation}
+  d = log((\chi - x_i)^2 + 1) +log((\nu - y_i)^2 + 1)
+\end{equation}
+
+
+Ragionevolmente possiamo quindi immaginare già una zona dove sarà contenuto il punto ottimale. Osservando la distribuzione dei clienti e la funzione che rappresenta la distanza, il magazzino non verrà mai costruito troppo esternamente).
+
+***
+
+# Formulate the objective function to minimize for the described problem.
+
+La funzione obiettivo quindi è la sommatoria di tutte le distanze tra magazzino e clienti.
+
+\begin{equation}
+  d_{tot} = \displaystyle\sum_{i=1}^{100} log((\chi - x_i)^2 + 1) +log((\nu - y_i)^2 + 1)
+\end{equation}
+
+Ed ha questa forma:
+
+```{r pressure, echo=FALSE, out.width = '60%', fig.align='center'}
+knitr::include_graphics("grafico.png")
+```
+Come si può vedere la funzione ha molti minimi locali. Il metodo del gradiente discendente quindi può aiutare a risolvere il problema, ma il punto designato potrà essere un ottimo locale e non globale.
+
+La funzione in R può essere scritta come:
+```{r}
+fun = function(chi, nu, df){
+  res = 0
+  for (i in c(1:nrow(df))) {
+    res = (log((chi - df$x[i])^2 + 1)) + (log((nu - df$y[i])^2 + 1)) + res
+  }
+  return(res)
+}
+```
+
+***
+
+# Express in analytical form the gradient for the objective to minimize.
+
+Il gradiente della funzione obiettivo è:
+
+\begin{equation}
+  \nabla(d_{tot}) = \begin{cases}
+  \displaystyle\sum_{i=1}^{100} \frac{2(\chi - x_i)}{(\chi - x_i)^2 + 1} \\
+  \displaystyle\sum_{i=1}^{100} \frac{2(\nu - x_i)}{(\nu - x_i)^2 + 1}
+\end{cases}
+\end{equation}
+
+
+```{r}
+gradient = function(chi, nu, df){
+  res1 = 0
+  res2 = 0
+  for(i in c(1:nrow(df))){
+    res1 = (2*(chi-df$x[i]))/((chi-df$x[i])^2 + 1) + res1
+    res2 = (2*(nu-df$y[i]))/((nu-df$y[i])^2 + 1) + res2
+  }
+  return(c(res1, res2))
+}
+```
+
+***
+
+# Implement the Gradiend Descent method and solve the problem with it.
+
+
+Per utilizzare il metodo del gradiente discendente servono:
+<ul>
+<li>Un punto di partenza $x_k$. </li>
+<li>Un passo $\alpha_k$ che stabilisce di quanto la funzione si sposta all'interno della mappa ad ogni iterazione. Nelle seguenti appliczioni è stato scelto di usarlo pari a $0.01$. </li>
+<li>Una funzione da ottimizzare $f$. </li>
+<li>Il gradiente della funzione $\nabla f$. </li>
+</ul>
+
+Si applica quindi la seguemte formula $x_{k+1} = x_k + \alpha_k*\nabla f(x_k)$ in un ciclo e si ferma l'algoritmo sotto una delle tre seguenti condizioni:
+<ul>
+  <li>Il gradiente nel punto $x_{k+1}$ è nullo. </li>
+  <li>Viene raggiunto un valore di precisione inferiore ad una soglia predeterminata. </li>
+  <li>O come in questo caso: si raggiunge un numero massimo di iterazioni prestabilite. </li>
+</ul>
+
+Viene creata ora la funzione che permette di implementare il metodo del gradiente discendente.
+```{r}
+gradientDescent = function(df, v.init, grad, passo, iters){
+  par = loss = matrix(NA, nrow = iters + 1, ncol = 2)
+  par[1,] = v.init
+  for(k in 1:iters){
+    loss[k,] = grad(par[k,1], par[k,2], df)
+    par[k+1,] = par[k,] - passo * loss[k,]       # formula del gradiente discendente
+  }
+  return(list(par = par))
+}
+```
+
+La funzione obiettivo ha molti minimi locali, per cui il punto che verrà selezionato dal metodo dipende fortemente da quello di partenza e il risultato non per forza sarà il minimo globale. Si procede quindi a dividere la mappa in 25 zone di egual dimensione e si sceglie il punto centrale come inizio per applicare il metodo del gradiente discendente. Osservando però la funzione da minimizzare e la distribuzione dei punti ci si rende conto che il punto di ottimo globale non sarà nelle regioni laterali, per cui vengono rimosse. Ciò permette di effettuare 9 cicli anzichè 25.
+Infine si selezionerà come migliore il punto che tra i 9 abbia ottenuto la distanza minore.
+
+
+
+```{r}
+
+#lista di coordinate note
+coord = list(c(294.9,293.1),c(294.9,488.5),c(294.9,683.9),c(491.5,293.1),c(491.5, 488.5),
+             c(491.5, 683.9),c(688.1, 293.1), c(688.1, 488.5), c(688.1, 683.9))
+
+
+results = data.frame(matrix(NA, ncol=3, nrow=9))
+for(i in 1:9) {
+  temp = as.data.frame(gradientDescent(df, coord[[i]], gradient, 0.01, iters = 1000))
+  results[i,1] = tail(temp$par.1, n=1)
+  results[i,2] = tail(temp$par.2, n=1)
+  results[i, 3] = fun(results[i,1], results[i,2], df)
+}
+colnames(results) = c("X","Y", "distanza")
+results_min = data.frame(x = results[which.min(results$distanza), 1],
+                           y = results[which.min(results$distanza), 2], distanza = min(results$distanza))
+
+```
+
+Il punto che risulta dare una distanza minore quinidi è:
+
+```{r,echo=F}
+kable(results_min, align = "c") %>%
+   kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+Il punto è già un buon minimo, ma si può provare a migliorare il rsultato utilizzandolo come punto di partenza per il metodo e verificare se nell'intorno è presente un minimo locale migliore.
+
+```{r}
+start = c(results_min[1,1], results_min[1,2])
+
+prova = data.frame()
+prova1 = as.data.frame(gradientDescent(df, start, gradient, 0.01, 1000))
+prova[1, 1] = tail(prova1$par.1, n = 1)
+prova[1, 2] = tail(prova1$par.2, n = 1)
+prova[1, 3] = fun(prova[1,1], prova[1,2], df)
+colnames(prova) = c("x", "y", "distanza")
+
+```
+
+
+```{r, echo=F}
+kable(prova, align = "c") %>%
+   kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+
+Come possiamo vedere dalla mappa delle densità il punto individuato risulta sensato.
+
+```{r, fig.align = "center", fig.cap = "mappa densità punti", echo=F}
+ggplot(df,aes(x=x,y=y))+
+  stat_density2d(aes(alpha=..level..), geom="polygon") +
+  scale_alpha_continuous(limits=c(0,0.2),breaks=seq(0,0.2,by=0.025))+
+  geom_point(colour="blue",alpha=0.02)+
+  geom_point(mapping = aes(x = prova[1,1],
+                           y = prova[1,2]), col = "blue", size = 2) +
+  geom_point(df, mapping = aes(x = x, y = y)) +
+  theme_bw()
+```
+
+
+
+***
+
+# Solve the problem with a package provided by R.
+
+Scrivo la funzione obiettivo e il gradiente come sono necessarie per utilizzare $optimr$.
+
+```{r}
+fun.r = function(st){
+  df = df
+  res = 0
+  for (i in c(1:nrow(df))) {
+    res = (log((st[1] - df$x[i])^2 + 1)) + (log((st[2] - df$y[i])^2 + 1)) + res
+  }
+  return(res)
+}
+
+gradient.r = function(st){
+  df = df
+  res1 = 0
+  res2 = 0
+  for(i in c(1:nrow(df))){
+    res1 = (2*(st[1]-df$x[i]))/((st[1]-df$x[i])^2 + 1) + res1
+    res2 = (2*(st[2]-df$y[i]))/((st[2]-df$y[i])^2 + 1) + res2
+  }
+  return(c(res1, res2))
+}
+
+```
+
+Viene utilizzata la funzione $optimr$ con metodo defaut per calcorare il minimo. Come punto di partenza si usa quello che tra i 9 aveva dato risultato migliore.
+
+```{r}
+ansfgh = optimr(par = start, fn = fun.r, gr = gradient.r)
+proptimr(ansfgh) 
+```
+
+```{r, echo=F}
+res_optimr = data.frame(t(ansfgh[[1]]), fun(ansfgh$par[1], ansfgh$par[2], df))
+colnames(res_optimr) = c("x", "y", "distanza")
+kable(res_optimr, align = "c") %>%
+   kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+
+```{r, fig.align = "center", fig.cap = "confronto 2 metodi", echo=F}
+ggplot(df, aes(x = x, y = y)) + 
+  geom_point(size = 1) +
+  geom_point(mapping = aes(x = prova[1,1], y = prova[1,2]), col = "blue", size = 2) + 
+  geom_point(mapping = aes(x = ansfgh$par[1], y = ansfgh$par[2]), col = "green", size = 2) +
+  theme_grey()
+```
+
+In questo caso optimir genera un punto vicino a quello trovato con il metodo precedente, ma comunque con una distanza molto simile.
+
+***
+
+# Implement the Stochastic gradient descent algorithm with mini-batches and use it to solve the problem.
+
+Il metodo del gradiente discendente stocastico risulta efficace quando è presente un grande dataset perchè consiste in un campionamento e nell'applicazione del metodo su quella porzione di dati. Il procedimento permette di ridurre i tempi di esecuzione e di restituire un punto di ottimo senza che esso risulti troppo influenzato dalle osservazioni selezionate.
+Nel caso presentato il campionamento consiste in 15 elementi.
+
+L'implementazione è la seguente:
+
+```{r}
+stoch_gradDescent = function(df, start, gradient, lr, iters){
+
+  par = start
+  
+  parIter = data.frame(matrix(NA, nrow = iters, ncol = 2))
+  
+  set.seed(1234)
+    
+  
+  for (i in 1:iters) {
+    df_temp = data.frame(as.matrix( df[sample(nrow(df), 15), ] ))
+    par = par - lr  * gradient(par[1], par[2], df_temp) 
+    parIter[i,] = par
+      
+ } 
+ return(parIter)
+}
+```
+
+Come punto di partenza si è scelto di usare il solito per confrontatre i risultati ottenuti.
+
+```{r}
+res_stoc = stoch_gradDescent(df, start, gradient, 0.01, 1000)
+res_stoc = data.frame(tail(res_stoc[, 1], 1), tail(res_stoc[,2], 1), fun(tail(res_stoc[, 1], 1), tail(res_stoc[,2], 1), df))
+colnames(res_stoc)= c("chi", "nu", "distanza")
+```
+
+```{r, echo=F}
+kable(res_stoc, align = "c") %>%
+   kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+
+
+```{r, fig.align = "center", fig.cap = "mappa densità punti", echo=F}
+ggplot(df,aes(x=x,y=y))+
+  stat_density2d(aes(alpha=..level..), geom="polygon") +
+  scale_alpha_continuous(limits=c(0,0.2),breaks=seq(0,0.2,by=0.025))+
+  geom_point(colour="blue",alpha=0.02)+
+  geom_point(mapping = aes(x = prova[1,1],
+                           y = prova[1,2]), col = "blue", size = 2) +
+  geom_point(df, mapping = aes(x = x, y = y)) +
+  geom_point(mapping = aes(x = res_stoc[1,1],
+                           y = res_stoc[1,2]), col = "green", size = 2) +
+  theme_bw()
+```
+
+
+Come si vede dal grafico la soluzione ottenuta con il metodo del gradiente discendente e quella con il SGD sono quasi sovrapponibili.
+
+

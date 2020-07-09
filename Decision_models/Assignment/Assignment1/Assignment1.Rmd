@@ -1,0 +1,179 @@
+---
+title: "Assignment 1"
+author: "Federico Manenti 790032"
+output:
+  prettydoc::html_pretty:
+    toc: yes
+    toc_depth: 5
+    theme: architect
+    highlight: github
+  pdf_document:
+    toc: yes
+    toc_depth: 5
+    latex_engine: xelatex
+  html_notebook:
+    toc: yes
+    toc_depth: 5
+  html_document:
+    code_download: yes
+    highlight: textmate
+    theme: spacelab
+    toc: yes
+    toc_depth: 5
+course: Decision Models
+---
+
+<style>
+body {
+text-align: justify
+}
+</style>
+
+# 1) The decision Tree
+
+Analizzando il caso proposto, la rappresentazione tramite albero decisionale può risolvere il primo problema. Nella struttura dell'albero ho deciso di non utilizzare un costo fisso, ma di vedere il profitto netto come payoff finale.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(yaml)
+library(radiant)
+library(radiant.model)
+library(kableExtra)
+path = "/home/federico/Scrivania/Università/decision_model/Assignment/Assignment_1/Soluzione/"
+```
+
+```{r}
+tree_1 = yaml.load_file(paste0(path, "tree_1.yaml"))
+
+result_1 = dtree(yl = tree_1)
+plot(result_1, final = F)
+
+```
+
+***
+
+# 2) Expected value
+
+Supponendo MC utilizzi come criterio di scelta l'Expected Value (EV), si può trovare la decisione che prenderebbe:
+
+```{r}
+plot(result_1, final = T)
+```
+In questo caso, come si può vedere dal percorso sottolineato, a MC converrebbe produrre tutte le $200000$ schede subito.
+
+***
+
+# 3) Utility Function and Certainty Equivalent
+
+Ora si conosce la tolleranza al rischio di MC, che è pari a R = $100000\$$, e la funzione di utilità $U(x)=1−e^{(x/R)}$. La concavità della funzione indica che MC è $Risk$ $Averse$.
+Con queste informazioni si può calcolare l'utilità e determinare la decisione che MC prenderà.
+
+```{r fig.align='center'}
+utilityFunction = function(X, R) {
+  u = 1- exp(-X/R)
+  return(u)
+}
+
+x = seq(from = 0, to = 500000)
+R = 100000
+plot(x, utilityFunction(x, R), type="l", col="blue", 
+     ylab="Utility Function", xlab="Evaluation Measure")
+```
+
+
+Per comodità salvo i profitti netti in un vettore e poi calcolo l'utility per i quattro valori.
+
+```{r}
+profit = c(350000, -150000, 100000, 50000)
+U = c()
+
+for (i in c(1:4)) {
+  U[i] = utilityFunction(profit[i], R)
+  
+}
+```
+
+```{r, echo=F}
+U
+```
+
+Ora si possono calcolare le utility per i due $Chance$ $Nodes$.
+
+```{r}
+U_1 = (U[1]+U[2])*0.5
+U_2 = (U[3]+U[4])*0.5
+```
+
+
+```{r, echo = F}
+df = data.frame(c("Ramo 1", "Ramo 2"), c(U_1, U_2))
+kable(df, align = "c", col.names = c("Rami", "Utility"), full_width = F)
+```
+
+Un albero decisionale aiuta a visualizare anche qui la situazione:
+
+```{r, echo= F}
+tree_2 = yaml.load_file(paste0(path, "tree_2.yaml"))
+
+result_2 = dtree(yl = tree_2)
+plot(result_2, final = T)
+
+```
+
+
+
+Per calcolare la $Certainty$ $Equivalent$ utilizziamo la formula $CE = -R*ln(1-E[U])$ applicandola ai valori ottenuti con la funzione di utilità.
+ 
+```{r}
+CEquivalent = function(U, R){
+  CE = -R*ln(1-U)
+  return(CE)
+}
+```
+
+Le CE associate ai due rami sono:
+
+```{r, echo = F}
+CE_1 = CEquivalent(U_1, R)
+CE_2 = CEquivalent(U_2, R)
+df = data.frame(c("Ramo 1", "Ramo 2"), c(CE_1, CE_2))
+kable(df, align = "c", col.names = c("Rami", "Certain Equivalent"), full_width = F)
+```
+
+Come si può osservare dai valori della $Certainty$ $Equivalent$ (e $Utility$) in questo caso la MC sceglierebbe il percorso opposto rispetto al punto 1). Ossia costruire $100000$ schede subito e aspettare la scelta di DISCO per produrre o meno le altre.
+
+***
+
+# 4) Modification of the process
+
+L'azienda MC manufacturing ha la possibilità di sviluppare una nuova tecnologia, investendo 25000\$ in ricerca e sviluppo, che se avesse successo (probabilità del 40%) farebbe diminuire il costo di produzione di una run da 250000$ a 50000\$. Mentre, se fallisse, i costi di produzione rimarrebbero invariati.
+Un'ulteriore complicazione però sta nel fatto che la R&D non è immediata e quindi non può influenzare la prima run di produzione, ma abbatterebbe i costi solo alla seconda nel caso DISCO decida di esercitare l'opzione di acquisto. Quindi MC deve decidere subito se investire o meno. Per chiarire meglio la situazione usiamo un ulteriore albero decisionale:
+
+```{r}
+tree_3 = yaml.load_file(paste0(path, "tree_3.yaml"))
+
+result_3 = dtree(yl = tree_3)
+plot(result_3, final = T)
+
+```
+
+In questo caso quindi MC procederebbe come nel primo caso: cosruirebbe tutte le 200000 schede subito. Questa scelta è data dal fatto che la R&D non è immediata, ma influenzerebbe solo una seconda run di produzione.
+
+***
+
+# 5) Value of Information
+
+Supponiamo ora che MC manufacturing possa pagare un esperto per ottenere con certezza l'informazione relativa al successo o meno della R&D. Con il seguente albero decisionale possiamo deteminare il massimo che MC sarà disposta a pagare per l'informazione.
+
+```{r}
+tree_4 = yaml.load_file(paste0(path,"tree_4.yaml"))
+
+result_4 = dtree(yl = tree_4)
+plot(result_4, final = T)
+```
+
+Il secondo ramo prende in considerazione il fatto che la R&D non vada a buon fine e quindi MC procederebbe fabbricando tutte le 200000 schede subito perchè, come precedentemente dimostrato, in questo caso è la soluzione più profiqua.
+Per determinare quanto MC sia disposta a pagare per ottenere l'informazione perfetta sull'esito dell'investimento si sottrarre il profitto atteso appena ottenuto (120000\$) e quello maggiore ottenuto negli atri casi (100000\$) ossia quando le schede sono prodotte tutte subito.
+L'azienda MC manufacturing è disposta quindi a pagare un massimo di 20000$ per ottenere l'informazione perfetta.
+

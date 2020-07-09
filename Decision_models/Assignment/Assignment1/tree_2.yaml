@@ -1,0 +1,33 @@
+name: MC computer
+variables:
+    batch_run_cost: 250000
+    board_cost: 2
+    board_revenue: 5
+    partial_board: 100000
+    total_board: 200000
+    R: 100000
+    payoff_1_1: 0.9698026 
+    payoff_1_2: -3.4816891 
+    payoff_2_1: 0.6321206
+    payoff_2_2: 0.3934693
+    
+type: decision
+MC produce 200000 schede:
+    type: chance
+    DISCO esercita l'opzione di acquisto:
+        p: 0.5
+        payoff: payoff_1_1
+    DISCO non esercita l'opzione di acquisto:
+        p: 0.5
+        payoff: payoff_1_2
+
+MC produce 100000 schede:
+    type: chance
+    DISCO esercita l'opzione di acquisto:
+        p: 0.5
+        payoff: payoff_2_1
+    DISCO non esercita l'opzione di acquisto:
+        p: 0.5
+        payoff: payoff_2_2
+
+

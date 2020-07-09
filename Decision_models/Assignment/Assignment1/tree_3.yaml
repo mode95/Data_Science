@@ -1,0 +1,58 @@
+name: MC Ricerca e sviluppo
+variables:
+    batch_run_cost: 250000
+    board_cost: 2
+    board_revenue: 5
+    partial_board: 100000
+    total_board: 200000
+    R&D_cost: 25000
+    run_cost_new: 50000
+    payoff_1_1: (board_revenue-board_cost)*total_board-batch_run_cost
+    payoff_1_2: board_revenue*partial_board-board_cost*total_board-batch_run_cost
+    payoff_2_1_1: (board_revenue-board_cost)*total_board-batch_run_cost-run_cost_new-R&D_cost
+    payoff_2_1_2: (board_revenue-board_cost)*partial_board-batch_run_cost-R&D_cost
+    payoff_2_1_3: (board_revenue-board_cost)*total_board-2*batch_run_cost-R&D_cost
+    payoff_2_1_4: (board_revenue-board_cost)*partial_board-batch_run_cost-R&D_cost
+    payoff_2_2_1: (board_revenue-board_cost)*total_board-2*batch_run_cost
+    payoff_2_2_2: (board_revenue-board_cost)*partial_board-batch_run_cost
+    
+type: decision
+MC produce 200000 schede:
+    type: chance
+    DISCO esercita l'opzione di acquisto:
+        p: 0.5
+        payoff: payoff_1_1
+    DISCO non esercita l'opzione di acquisto:
+        p: 0.5
+        payoff: payoff_1_2
+
+MC produce 100000 schede:
+    type: decision
+    MC fa R&D:
+        type: chance
+        R&D va a buon fine:
+            p: 0.4
+            type: chance
+            DISCO esercita l'opzione di acquisto:
+                p: 0.5
+                payoff: payoff_2_1_1
+            DISCO non esercita l'opzione di acquisto:
+                p: 0.5
+                payoff: payoff_2_1_2
+        R&D non va a buon fine:
+            p: 0.6
+            type: chance
+            DISCO esercita l'opzione di acquisto:
+                p: 0.5
+                payoff: payoff_2_1_3
+            DISCO non esercita l'opzione di acquisto:
+                p: 0.5
+                payoff: payoff_2_1_4
+    MC non fa R&D:
+        type: chance
+        DISCO esercita l'opzione di acquisto:
+            p: 0.5
+            payoff: payoff_2_2_1
+        DISCO non esercita l'opzione di acquisto:
+            p: 0.5
+            payoff: payoff_2_2_2
