@@ -1,3 +1,3 @@
 # Walletize
 
-An easiesr way to share payment methods with all.
+An easiesr way to share payment methods with everybody.
