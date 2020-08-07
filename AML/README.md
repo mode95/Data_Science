@@ -1,1 +1,1 @@
-Progetto e assignment Advance Machine Learning
+*Airbnb new user booking*, a python project focused on hyperparameters optimization with AutoML (Bayesian optimization) that uses several ML models (SVM, XGBoost) and a Neural Network to solve a multi-label multi-class classification that is a [Kaggle challange](https://www.kaggle.com/c/airbnb-recruiting-new-user-bookings). The challenge consists to find the first-holiday destination for new members of the platform.
