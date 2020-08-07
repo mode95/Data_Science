@@ -1,2 +1,3 @@
 # Data_Science
-Raccolta progetti laurea Data Science
+
+Developed projects within the master's degree in Data science.
