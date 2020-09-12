@@ -1,0 +1,998 @@
+---
+title: "Progetto Streaming Data Management and Time Series Analysis"
+author: "Federico Manenti 790032"
+date: "10/09/2020"
+output:
+  prettydoc::html_pretty:
+    toc: yes
+    toc_depth: 5
+    theme: architect
+    highlight: github
+  pdf_document:
+    toc: yes
+    toc_depth: 5
+    latex_engine: xelatex
+  html_notebook:
+    toc: yes
+    toc_depth: 5
+  html_document:
+    code_download: yes
+    highlight: textmate
+    theme: spacelab
+    toc: yes
+    toc_depth: 5
+course: Streaming Data Management and Time Series Analysis
+---
+
+<style>
+body {
+text-align: justify
+}
+</style>
+
+
+
+# Introduzione
+
+In questo progetto si studia una serie temporale riguardante i prezzi del mercato energetico giornaliero dal 01-01-2010 al 31-12-218. L'obiettivo è la previsione degli 11 mesi successivi (01-01-2019 al 31-11-2019) utilizzando tre metodologie diverse: ARIMA, UCM e Reti Neurali.
+
+Per il confronto tra le diverse metodologie la principale misura di errore utilizzata è il $MSE$ perchè è una metrica che pesa molto di più gli errori gravi rispetto a quelli piccoli. Verrà fornito anche il $MAPE$ perchè una misura di valutazione di facile interpretazione umana (l'utilizzo del MAPE è possibile in quanto i dati sono dei prezzi e quindi sempre maggiori di 0). <br>
+Per il confronto interno tra modelli della stessa metodologia invece si utilizzerà per $ARIMA$ l'$AIC$, per $UCM$ e $NN$ si usano $MSE$ e $MAPE$ su train o test set.
+
+Infine i primi sette anni (01-01-2010 al 31-12-2016) sono usati come train e gli ultimi due (01-01-2017 al 31-12-2018) come test.
+
+
+***
+
+# Load Libraries
+
+```{r, error=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(kableExtra)
+library(xts)
+library(ggplot2)
+library(tidyr)
+library(forecast)
+library(urca)
+library(MLmetrics)
+library(KFAS)
+```
+
+# Load data
+
+Vengono caricati e mostrati i dati della serie storica relativi al prezzo del mercato energetico dal 1/01/2010 al 31/12/2018.
+
+```{r, fig.align='center'}
+data <- read.csv("time_series_dataset.csv", sep = ";")
+data$Data <- as.Date(as.character(data$Data))
+y <- data$value
+y <- xts(y, as.Date(as.character(data$Data),
+                    format = "%Y-%m-%d"))
+plot(y, main = "Serie Storica")
+```
+
+
+***
+
+# ARIMA
+
+Per risolvere il problema di previsione e trovare l'ordine del modello ARIMA si usa la metodologia Box e Jenkins.
+
+## Controllo stazionarità in varianza
+```{r, fig.align='center'}
+# Caloclo media e sd mensile
+mean <- tapply(y, substr(time(y), 1, 7), mean)
+sdev <- tapply(y, substr(time(y), 1, 7), sd)
+plot(mean, sdev)
+```
+
+Non sembra esserci dipendenza tra media e dev standard.
+
+```{r}
+BoxCox.lambda(y) 
+```
+Anche il calcolo ottimale del lambda per la traformazione di box-cox restituisce un numero simile ad 1
+
+
+
+## Controllo stazionarietà in media per stagionalità 
+
+Sembra esserci una stagionalità ogni 7 giorni quindi si applica la differenza e poi si verifica l'ipotesi.
+
+```{r, fig.align='center'}
+y_diff <- diff(y, 7)
+
+plot(y_diff, main = "Serie storia con differenza")
+```
+
+Ora il grafico non mostra più stagionalità come prima, si prova anche l'augmented Dickey-Fulier test come ulteriore conferma.
+
+```{r}
+summary(ur.df(y_diff[!is.na(y_diff)], "drift", 10, "AIC")) 
+```
+Visto che il valore del test: `r ur.df(y_diff[!is.na(y_diff)], "drift", 10, "AIC")@teststat[1]` è minore del valore critico `r ur.df(y_diff[!is.na(y_diff)], "drift", 10, "AIC")@cval[1,2]` conferma che il processo ora è stazionario.
+
+
+## Controllo Stazionarietà in media (TREND)
+
+```{r, fig.align='center'}
+stl(ts(as.numeric(y), frequency = 365.25), s.window = "periodic", robust = T) %>%
+  autoplot()
+```
+
+Sembra esserci un piccolo trend, per ora però non viene considerato.
+
+
+## Split Train e Test
+
+
+```{r, fig.show='hide'}
+y_train <- y
+y_test <- y
+y_train["2017-01-01/2018-12-31"] <- NA
+y_test["2010-01-01/2016-12-31"] <- NA
+plot(y_train, main="Time Series")
+lines(y_test, col = "red")
+```
+```{r, fig.align='center'}
+addLegend(legend.loc = "topleft", legend.names=c("train", "test"),
+          col=c("black", "red"), lty=1, bg="white",
+          bty = 1, text.col = c("black", "red"))
+```
+```{r, echo=F}
+y_train <- y_train[!is.na(y_train)]
+y_test <- y_test[!is.na(y_test)]
+```
+
+
+
+## Primo modello
+
+Si studiano i grafici ACF e PACF della serie ritardata.
+
+```{r, fig.align='center'}
+ ggtsdisplay(diff(y_train, 7), lag.max = 60, 
+             main = "Residui serie temporale con differenzazione")
+```
+
+Dai grafici ACF e PACF della serie con differenzazione sembra esserci un $SARMA(1)[7]$. Il primo modello provato (sulla serie base) è quinidi $ARIMA(0,0,0)(1,1,1)[7]$
+
+```{r}
+mod1 <- Arima(y_train, c(0,0,0), list(order=c(1,1,1), period = 7), lambda = "auto")
+mod1
+```
+
+```{r, fig.align='center'}
+ggtsdisplay(mod1$residuals, lag.max = 60, main = "Residui ARIMA(0,0,0)(1,1,1)[7]")
+```
+
+Dagli ACF e PACF dei residui del primo modello potrebbe esserci ancora presente un MA(6) e un AR(6) visto i primi 6 lag in ACF e PACF, sembrano però esserci anche delle anomalie che non permettono di esere sicuri sull'ordine di $p$ e $q$. 
+
+Per trovare quale sia il modello migliore si effettua quindi una grid search di un modello $ARIMA(p,0,q)(1,1,1)[7]$ con $p$ e $q$ che variano tra 1 e 6, si selezionerà il modello con AIC minore.
+
+Inoltre, come accennato precedentemente, potrebbe esserci anche un trend e quindi un integrazione non stagionale per cui si troverà il miglior modello $ARMA(p,q)$ e poi si proverà ad inserire l'integrazione.
+
+
+```{r, eval = F}
+# Questo chunk non viene eseguito nel report perchè estremamente lungo da calcolare
+
+best_mod <- Arima(y_train, c(0,0,0), list(order=c(1,1,1), period=7), 
+                  lambda = "auto")
+best_loglik <- best_mod$loglik
+best_aic <- best_mod$aic
+
+for (i in 1:12){
+    for (j in 1:12){
+      tryCatch({
+            temp_mod <- Arima(y_train, c(i,0,j), list(order=c(1,1,1), period=7), 
+                          lambda = "auto")
+            temp_mod_loglik <- temp_mod$loglik
+            temp_mod_aic <- temp_mod$aic
+            if (best_aic > temp_mod$aic){
+                best_mod <- temp_mod
+                best_aic <- temp_mod$aic
+            }
+            if (best_loglik < temp_mod$loglik){
+              best_loglik <- temp_mod$loglik
+            }
+            }, error=function(e){temp_mod_aic <- 99999
+            temp_mod_loglik <- 99999})
+            
+        print(paste0("AR-",i," MA-",j,
+                     " -- AIC:",temp_mod_aic, " --BEST_AIC:",best_aic,
+                     " -- loglik:",temp_mod_loglik, " --BEST_loglik:", best_loglik), 
+              flush=TRUE)
+    }
+}
+```
+
+Il modello con AIC minore è $ARIMA(3,0,4)(1,1,1)[7]$.
+
+
+```{r}
+# Tenendo conto di AIC
+
+best_mod <- Arima(y_train, c(3,0,4), list(order=c(1,1,1), period = 7), 
+                  lambda = "auto") 
+best_mod
+```
+
+Si aggiunge l'integrazione non stagionale al modello appena trovato e si confrontano i risultati per decretare il migliore.
+
+```{r}
+best_mod_int <- Arima(y_train, c(3,1,4), 
+                      list(order=c(1,1,1), period = 7), lambda = "auto")
+best_mod_int
+```
+
+Confrontando le AIC risulta migliore il modello senza integrazione.
+
+
+Si studiano ora i residui del modello.
+```{r, fig.align='center'}
+ggtsdisplay(best_mod$residuals, lag.max = 60, 
+            main = "Residui ARIMA(3,0,4)(1,1,1)[7]")
+```
+
+
+Dagli ACF e PACF sembra che i residui siano rientrati tranne alcuni, per confermare che siano un White Noise si usa il test di Ljung-Box.
+
+```{r, fig.align='center'}
+checkresiduals(best_mod)
+```
+
+
+Il $p-value$ restituito è pari a `r checkresiduals(best_mod)$p.value` $> 0.5$ quindi ciò non permette di rifituare l'ipotesi nulla di dati indipendemntente distribuiti (W.N.).
+
+
+
+
+```{r, fig.show='hide'}
+plot(y_train, main = "Train serie tempolare con fit")
+lines(xts(best_mod$fitted, as.Date(time(y_train))), col = "red")
+```
+```{r, fig.align='center'}
+addLegend(legend.loc = "topleft", legend.names=c("train", "fitted"),
+          col=c("black", "red"), lty=1, 
+          bg="white", bty = 1, text.col = c("black", "red"))
+```
+
+Il modello sembra funzionare bene sul train set.
+
+
+
+###  Prova previsioni
+
+
+Nel mercato energetico solitamente è importante la previsione un passo in avanti, la consegna dell'esame però chiede la previsione dei primi 11 mesi del 2019, non avendo a disposizione i dati reali non è possibile procedere in questo modo, ma per valutare la bontà delle previsioni si utilizzerà quindi una previsione con orizzonte temporale 334.
+
+
+
+```{r, fig.show='hide'}
+prev <- c()
+for (i in (0:(length(y_test)-1))) {
+  
+  prev <- append(prev, forecast(Arima(y[1:(length(y_train) + i)], 
+                                      model = best_mod), h = 1)$mean)
+}
+
+
+plot(y_test, main = "Test serie temporale")
+lines(xts(prev, time(y_test)), col = "red")
+lines(xts(forecast(best_mod, length(y_test))$mean, time(y_test)), col = "blue")
+```
+```{r, fig.align='center'}
+addLegend(legend.loc = "topleft", legend.names=c("Prev h = 1", "prev h = 730"),
+          col=c("red", "blue"), lty=1, bg="white", 
+          bty = 1, text.col = c("red", "blue"))
+```
+
+Come si vede dal grafico la previsione rolling 1 passo in avanti si adatta bene alla serie storica, ma quando si tenta di prevedere tutto il test set in un unica volta  si ottiene un pessimo risultato. 
+
+Si cerca dunque di modifiare il modello inserendo dei regressori esterni (sinusoidali) per risolvere la multistagionalità che risulta evidente nella serie storica. 
+Il numero ideale di regressori esterni sinusoidali è scelto tramite la valutazione del modello su test set, ovvero il modello che raggiunge il valore di MSE più basso.
+
+
+```{r, eval=F}
+# Questo chunk non viene eseguito nel report perchè estremamente lungo da calcolare
+
+total_MSE <- c()
+total_MAPE <- c()
+for (j in 1:30){
+  freq <- outer(1:nrow(data), 1:j)*2*pi/365.25
+  
+  cs   <- cos(freq)                   
+  colnames(cs) <- paste("cos", 1:j)
+  si   <- sin(freq)                   
+  colnames(si) <- paste("cos", 1:j)
+  sin_reg <- as.matrix(cbind(cs,si))
+  
+  
+  best_mod_reg <- Arima(y_train, c(3,0,4), list(order=c(1,1,1), period=7), 
+                        xreg=sin_reg[1:(length(y_train)),], lambda = "auto")
+  
+  
+  temp_forecast <- forecast(best_mod_reg, h=334, 
+                            xreg=sin_reg[(length(y_train)):(length(y_train)+333),])
+
+  score_MAPE <- c(mean(abs(as.numeric(temp_forecast$mean) - 
+                             as.numeric(y_test[1:334]))/
+                         as.numeric(y_test[1:334])))
+  score_MSE <- c(sum((as.numeric(temp_forecast$mean) -
+                        as.numeric(y_test[1:334]))^2)/334)
+  
+      for (i in 1:(length(y_test) - 334)){
+              temp_mod <- Arima(append(y_train[i:length(y_train)],y_test[1:i]), 
+                                model=best_mod_reg, 
+                                xreg=sin_reg[i:(length(y_train)+i),])
+              
+              temp_forecast <- forecast(temp_mod, h=334, 
+                                        xreg=sin_reg[(length(y_train)+i+1):
+                                                     (length(y_train)+i+334),])$mean
+              
+              score_MAPE <- append(score_MAPE, mean(abs(as.numeric(temp_forecast) -
+                                                as.numeric(y_test[(i+1):(i+334)]))/
+                                                  as.numeric(y_test[(i+1):(i+334)])))
+              
+              score_MSE <- append(score_MSE, 
+                                  sum((as.numeric(temp_forecast) - 
+                                         as.numeric(y_test[(i+1):(i+334)]))^2)/334)
+          }
+  
+  print(paste0("ARIMA MAPE medio: ", mean(score_MAPE)*100))
+  print(paste0("ARIMA MSE medio: ", mean(score_MSE)))
+  arima_MAPE <- mean(score_MAPE)*100
+  arima_MSE <- mean(score_MSE)
+  total_MAPE <- append(total_MAPE, arima_MAPE)
+  total_MSE <- append(total_MSE, arima_MSE)
+}
+```
+
+Il numero ideale di armoniche è 5.
+
+
+```{r}
+freq <- outer(1:nrow(data), 1:5)*2*pi/365.25
+
+cs   <- cos(freq)                   
+colnames(cs) <- paste("cos", 1:5)
+si   <- sin(freq)                   
+colnames(si) <- paste("sin", 1:5)
+sin_reg <- as.matrix(cbind(cs,si))
+
+
+best_mod_reg <- Arima(y_train, c(3,0,4), list(order=c(1,1,1), period=7), 
+                      xreg=sin_reg[1:(length(y_train)),], lambda = "auto")
+
+best_mod_reg
+```
+
+
+
+
+```{r, fig.show='hide'}
+plot(y_test, main = "Previsioni test con orizonte temporale 730")
+lines(xts(forecast(best_mod, length(y_test))$mean, time(y_test)), col = "red")
+lines(xts(forecast(best_mod_reg, length(y_test), 
+                   xreg=sin_reg[(length(y_train)):(length(y_train)+729),])$mean, 
+          time(y_test)), col = "blue")
+```
+```{r, fig.align='center'}
+
+addLegend(legend.loc = "topleft", 
+          legend.names=c("Test set serie", "Senza regressori", "Con regressori"),
+          col=c("black", "red", "blue"), lty=1, 
+          bg="white", bty = 1, text.col = c("black", "red", "blue"))
+```
+
+
+Come si può notare dal grafico grazie ai regressori la performance della previsione migliora, ma non è ancora perfetta, un'altra idea per aumentare la precisione è utilizzare variabili dummy per le festività.
+
+Non conoscendo però il paese di origine della serie temporale e quindi le feste da utilizzare non si può essere sicuri di migliorare la previsione, in effetti da una prova effettuata utilizzando solo le festività: \textit{Capodanno, Pasqua, Ferragosto, Natale e ultimo dell'anno} il modello peggiora le previsioni. 
+
+Il codice è presente, ma non verrà quindi eseguito.
+
+
+## Prova vacanze
+
+
+```{r, eval = F}
+ferragosto <- as.Date(paste0(2010:2019, "-08-15"))
+
+fine_anno <- as.Date(paste0(2010:2019, "-12-31"))
+
+capodanno <- as.Date(paste0(2010:2019, "-01-01"))
+
+natale <- as.Date(paste0(2010:2019, "-12-25"))
+
+pasqua <- as.Date(Easter(2010:2019))
+
+
+data.frame(Data=data$Data) %>%
+    mutate(Christmas = as.numeric(Data %in% natale)) %>%
+    mutate(new_year = as.numeric(Data %in% capodanno)) %>%
+    mutate(end_year = as.numeric(Data %in% fine_anno)) %>%
+    mutate(Easter = as.numeric(Data %in% pasqua)) %>%
+    mutate(Ferragosto = as.numeric(Data %in% ferragosto)) %>% 
+    select(-starts_with("Data")) %>% 
+    cbind(sin_reg) %>% 
+    as.matrix() -> sin_reg
+
+
+best_mod_vac <- Arima(y_train, c(3,0,4), list(order=c(1,1,1), period=7), 
+                      xreg=sin_reg[1:(length(y_train)),], lambda = "auto")
+best_mod_vac
+```
+
+
+
+
+
+## Previsioni modello migliore
+
+
+Come già accennato le previsioni vengono effettuate 334 passi in avanti e come metriche vengono usate MSE perchè pesa di più gli errori gravi rispetto a quelli piccoli e MAPE perchè di facile interpretazione umana. Il modello utilizzato è l'$ARIMA(3,0,4)(1,1,1)[7]$ con i regressori sinusoidali.
+
+
+```{r}
+temp_forecast <- forecast(best_mod_reg, h=334, 
+                          xreg=sin_reg[(length(y_train)):(length(y_train)+333),])
+
+score_MAPE <- c(mean(abs(as.numeric(temp_forecast$mean) - 
+                           as.numeric(y_test[1:334]))/as.numeric(y_test[1:334])))
+
+score_MSE <- c(sum((as.numeric(temp_forecast$mean) - 
+                      as.numeric(y_test[1:334]))^2)/334)
+
+for (i in 1:(length(y_test) - 334)){
+    temp_mod <- Arima(append(y_train[i:length(y_train)],y_test[1:i]), 
+                      model=best_mod_reg, xreg=sin_reg[i:(length(y_train)+i),])
+    
+    temp_forecast <- forecast(temp_mod, h=334, 
+                              xreg=sin_reg[(length(y_train)+i+1):
+                                             (length(y_train)+i+334),])$mean
+    
+    score_MAPE <- append(score_MAPE, mean(abs(as.numeric(temp_forecast) -
+                                      as.numeric(y_test[(i+1):(i+334)]))/
+                                        as.numeric(y_test[(i+1):(i+334)])))
+    score_MSE <- append(score_MSE, 
+                        sum((as.numeric(temp_forecast) - 
+                               as.numeric(y_test[(i+1):(i+334)]))^2)/334)
+}
+```
+
+```{r}
+cat(paste0("ARIMA MAPE train set: ", 
+           mean(abs(best_mod_reg$fitted - as.numeric(y_train)) / 
+                  as.numeric(y_train))*100,
+           "\n", "ARIMA MSE train set: ", 
+           sum(((best_mod_reg$fitted-as.numeric(y_train))^2) /
+                 length(y_train))))
+```
+
+
+```{r}
+arima_MAPE <- mean(score_MAPE)*100
+arima_MSE <- mean(score_MSE)
+cat(paste0("ARIMA MAPE medio test set: ", mean(score_MAPE)*100, 
+           "\n","ARIMA MSE medio test set: ", mean(score_MSE)))
+```
+
+
+***
+
+# UCM
+
+Per quanto riguarda il modello $UCM$ vengono usate le considerazioni effettuate per $ARIMA$ e quindi è proposto un modello con LLT, una componente stagionale (dummy) settimanale e una annua (trigonometrica, di cui si prendono le prime 5 armoniche) entrambe stocastiche. Tutti i modelli UCM vengono implementati in forma State Space sfruttando la libreria KFAS.
+
+
+## Primo modello (LLT + stag)
+
+
+```{r}
+ucm_model <- SSModel(y_train ~ SSMtrend(2, list(NA, NA)) + 
+                       SSMseasonal(7, NA, "dummy") + 
+                       SSMseasonal(365, NA, "trig", harmonics = 1:5),
+                     H = NA)
+
+# Si sistemano le condizioni iniziali per evitare diffusione
+vary <- var(y_train)
+ucm_model$P1inf <- ucm_model$P1inf * 0
+ucm_model$a1[1] <- mean(y_train)
+diag(ucm_model$P1) <- vary
+
+
+# Si fissano i valori iniziali delle varianze 
+pars <- numeric(5)
+pars[1] <- log(vary/10)       # Level
+pars[2] <- log(vary/10)       # Slope
+pars[3] <- log(vary/100)      # Seasonal dummy
+pars[4] <- log(vary/100)      # Seasonal trig
+pars[5] <- log(vary/10)       # Obs error
+
+
+  # Funzione di update
+updt <- function(pars, model){
+    model$Q[1, 1, 1] <- exp(pars[1])
+    model$Q[2, 2, 1] <- exp(pars[2])
+    model$Q[3, 3, 1] <- exp(pars[3])
+    diag(model$Q[4:13, 4:13, 1]) <- exp(pars[4])
+    model$H[1, 1, 1] <- exp(pars[5])
+    model
+}
+
+ucm_fit <- fitSSM(ucm_model, pars, updt)
+
+ucm_fit$optim.out$convergence
+```
+
+Ha raggiunto la convergenza.
+
+
+```{r, fig.show='hide'}
+smo <- KFS(ucm_fit$model, filtering = "signal", smoothing = NULL )
+
+plot(y_train, main = "Train serie temporale fittata con UCM")
+lines(xts(smo$m[,1], time(y_train)), col = "red")
+```
+```{r, fig.align='center'}
+addLegend(legend.loc = "topleft", 
+          legend.names=c("Train serie completa", "Train fittato con UCM"),
+          col=c("black", "red"), lty=1, bg="white", 
+          bty = 1, text.col = c("black", "red"))
+```
+
+
+Si calcola ora MSE e MAPE sul train set.
+
+
+```{r}
+cat(paste0("MAPE UCM su train set: ", 
+           mean(abs(y_train - as.numeric(smo$m))/y_train)*100, 
+           "\n", "MSE UCM su train set: ", 
+           sum((y_train - as.numeric(smo$m))^2)/length(y_train)))
+```
+
+## Secondo modello (IRW)
+
+La seconda prova avviene con Integrated Random Walk e le stesse componenti stagionali precedenti.
+
+
+```{r}
+ucm_mod1 <- SSModel(y_train ~ SSMtrend(2, list(0,NA)) +
+                      SSMseasonal(7, NA, "dummy") +
+                      SSMseasonal(365, NA, "trig",
+                                  harmonics = 1:5),
+                H = NA)
+
+# Si sistemano le condizioni iniziali per evitare diffusione
+ucm_mod1$P1inf <- ucm_mod1$P1inf * 0
+ucm_mod1$a1[1] <- mean(y_train)
+diag(ucm_mod1$P1) <- vary
+
+
+
+# Si fissano i valori iniziali delle varianze 
+pars <- numeric(5)
+pars[1] <- 0                  # Level
+pars[2] <- log(vary/10)       # Slope
+pars[3] <- log(vary/100)      # Seasonal dummy
+pars[4] <- log(vary/100)      # Seasonal trig
+pars[5] <- log(vary/10)       # Obs error
+
+#funzione per fitSSM
+updt1 <- function(pars, model){
+    model$Q[1, 1, 1] <- exp(pars[1])
+    model$Q[2, 2, 1] <- exp(pars[2])
+    model$Q[3, 3, 1] <- exp(pars[3])
+    diag(model$Q[4:13, 4:13, 1]) <- exp(pars[4])
+    model$H[1, 1, 1] <- exp(pars[5])
+    model
+}
+
+ucm_fit1 <- fitSSM(ucm_mod1, pars, updt1)
+print(ucm_fit1$optim.out$convergence)
+```
+
+Ha raggiunto la convergenza.
+
+```{r}
+smo1 <- KFS(ucm_fit1$model, filtering = "signal", smoothing = NULL )
+cat(paste0("MAPE UCM su train set: ", mean(abs(y_train - 
+                                                 as.numeric(smo1$m))/y_train)*100, 
+           "\n", "MSE UCM su train set: ", sum((y_train - as.numeric(smo1$m))^2) /
+             length(y_train)))
+```
+
+Il modello con LLT risulta migliore sia considerando MSE che MAPE.
+
+## Terzo modello (RW)
+
+Il terzo modello utilizza un Random Walk e le due solite componenti stagionali.
+
+```{r}
+ucm_mod2 <- SSModel(y_train ~ SSMtrend(1, NA) +
+                      SSMseasonal(7, NA, "dummy") +
+                      SSMseasonal(365, NA, "trig",
+                                  harmonics = 1:5),
+                H = NA)
+
+# Si sistemano le condizioni iniziali per evitare diffusione
+ucm_mod2$P1inf <- ucm_mod2$P1inf * 0
+ucm_mod2$a1[1] <- mean(y_train)
+diag(ucm_mod2$P1) <- vary
+
+
+
+# Si fissano i valori iniziali delle varianze 
+pars <- numeric(5)
+pars[1] <- log(vary/10)       # Level
+pars[2] <- log(vary/100)      # Seasonal dummy
+pars[3] <- log(vary/100)      # Seasonal trig
+pars[4] <- log(vary/10)       # Obs error
+
+#funzione per fitSSM
+updt2 <- function(pars, model){
+    model$Q[1, 1, 1] <- exp(pars[1])
+    model$Q[2, 2, 1] <- exp(pars[2])
+    diag(model$Q[3:12, 3:12, 1]) <- exp(pars[4])
+    model$H[1, 1, 1] <- exp(pars[5])
+    model
+}
+
+ucm_fit2 <- fitSSM(ucm_mod2, pars, updt2)
+print(ucm_fit1$optim.out$convergence)
+```
+
+Ha raggiunto la convergenza.
+
+```{r}
+smo2 <- KFS(ucm_fit2$model, filtering = "signal", smoothing = NULL )
+cat(paste0("MAPE UCM su train set: ", 
+           mean(abs(y_train - as.numeric(smo2$m))/y_train)*100, 
+           "\n", "MSE UCM su train set: ", 
+           sum((y_train - as.numeric(smo2$m))^2)/length(y_train)))
+```
+
+
+Il modello con LLC e quello con solo RW hanno dei valori molto simili sul train set, per scegliere il migliore quindi vengono utilizzati entrambi per le previsioni con orizzonte temporale 334 sul test set e verrà selezionato il modello con le performance 
+migliori.
+
+
+
+## Previsioni
+
+Per valutare i due modelli, come per Arima, si utilizza un orizzonte temporale pari a 334 giorni.
+
+
+### LLT 
+```{r}
+data <- c(rep(NA, 334))
+temp_mod <- SSModel(data ~  SSMtrend(2, list(ucm_fit$model$Q[1,1,1], 
+                                             ucm_fit$model$Q[2,2,1])) +
+                      SSMseasonal(7, ucm_fit$model$Q[3,3,1], "dummy") +
+                      SSMseasonal(365, ucm_fit$model$Q[4, 4, 1], "trig",
+                              harmonics = 1:5),
+                    H = ucm_fit$model$H)
+
+ucm_pred <- predict(ucm_fit$model, newdata=temp_mod)
+test <- as.numeric(y_test)[1:334]
+
+score_MAPE <- c(mean(abs(ucm_pred - test)/test))
+score_MSE <- c(sum((ucm_pred-test)^2)/334)
+
+for (i in 1:(length(y_test) - 334)){
+    data <- c(as.numeric(y_test[1:i]), rep(NA, 334))
+    
+    temp_mod <- SSModel(data ~ SSMtrend(2, list(ucm_fit$model$Q[1,1,1], 
+                                                ucm_fit$model$Q[2,2,1])) +
+                      SSMseasonal(7, ucm_fit$model$Q[3,3,1], "dummy") +
+                      SSMseasonal(365, ucm_fit$model$Q[4, 4, 1], "trig",
+                                  harmonics = 1:5),
+                    H = ucm_fit$model$H)
+    
+    ucm_pred <- predict(ucm_fit$model, newdata=temp_mod)[(i+1):(i+334)]
+    test <- as.numeric(y_test)[(i+1):(i+334)]
+    score_MAPE <- append(score_MAPE, mean(abs(ucm_pred - test)/test))
+    score_MSE <- append(score_MSE, sum((ucm_pred-test)^2)/334)
+}
+
+ucm_MAPE <- mean(score_MAPE)*100
+ucm_MSE <- mean(score_MSE)
+
+cat(paste0("UCM MAPE medio: ", mean(score_MAPE)*100, 
+           "\n","UCM MSE medio: ", mean(score_MSE)))
+```
+
+### RW
+```{r}
+data <- c(rep(NA, 334))
+temp_mod <- SSModel(data ~  SSMtrend(1, ucm_fit2$model$Q[1,1,1]) +
+                      SSMseasonal(7, ucm_fit2$model$Q[2,2,1], "dummy") +
+                      SSMseasonal(365, ucm_fit2$model$Q[3, 3, 1], "trig",
+                              harmonics = 1:5),
+                    H = ucm_fit2$model$H)
+
+ucm_pred <- predict(ucm_fit2$model, newdata=temp_mod)
+test <- as.numeric(y_test)[1:334]
+
+score_MAPE <- c(mean(abs(ucm_pred - test)/test))
+score_MSE <- c(sum((ucm_pred-test)^2)/334)
+
+for (i in 1:(length(y_test) - 334)){
+    data <- c(as.numeric(y_test[1:i]), rep(NA, 334))
+    
+    temp_mod <- SSModel(data ~ SSMtrend(1, ucm_fit2$model$Q[1, 1, 1]) +
+                      SSMseasonal(7, ucm_fit2$model$Q[2, 2, 1], "dummy") +
+                      SSMseasonal(365, ucm_fit2$model$Q[3, 3, 1], "trig",
+                                  harmonics = 1:5),
+                    H = ucm_fit2$model$H)
+    
+    ucm_pred <- predict(ucm_fit2$model, newdata=temp_mod)[(i+1):(i+334)]
+    test <- as.numeric(y_test)[(i+1):(i+334)]
+    score_MAPE <- append(score_MAPE, mean(abs(ucm_pred - test)/test))
+    score_MSE <- append(score_MSE, sum((ucm_pred-test)^2)/334)
+}
+
+
+ucm_MAPE <- mean(score_MAPE)*100
+ucm_MSE <- mean(score_MSE)
+
+cat(paste0("UCM MAPE medio: ", mean(score_MAPE)*100, 
+           "\n","UCM MSE medio: ", mean(score_MSE)))
+```
+
+Il modello che raggunge performance più soddisfacenti è quello con il Random Walk.
+
+
+Ricapitolando le performance del modello UCM migliore (RW) sul train e test set sono.
+```{r}
+cat(paste0("UCM MAPE train set: ", 
+           mean(abs(y_train - as.numeric(smo2$m))/y_train)*100, 
+           "\n", "UCM MSE train set: ", 
+           sum((y_train - as.numeric(smo2$m))^2)/length(y_train)))
+```
+
+
+```{r}
+cat(paste0("UCM MAPE medio test set: ", ucm_MAPE, 
+           "\n","UCM MSE medio test set: ", ucm_MSE))
+```
+
+
+
+
+Le previsioni one-shot sul test set sono mostrate in figura. 
+```{r, fig.show='hide'}
+plot(y_test, main="Previsioni modello UCM (RW) su test set")
+lines(xts(predict(ucm_fit2$model, n.ahead = 730)[,1], time(y_test)), col = "red")
+```
+```{r, fig.align='center'}
+addLegend(legend.loc = "topleft", legend.names=c("Test", "Previsioni UCM"),
+          col=c("black", "red"), lty=1, bg="white", 
+          bty = 1, text.col = c("black", "red"))
+```
+
+
+***
+
+# Reti Neurali
+
+
+Le reti neurali provate sono state implementate usando python, il codice si trova nel relativo notebook.
+
+Per prima cosa i dati sono stati standardizzati per ottenere media 0 e deviazione standard pari a 1, la "maschera" è stata ottenuta dal train set. Successivamente è stato modificato il dataset nel forma adatta alle reti neurali ed è stata scelta una finestra $time\_step$ (i dati che può guardare il modello in dietro) di 2 anni e una finestra $prev\_step$ (i dati che deve prevedere il modello) di 334 giorni. La prima è una scelta arbitraria e due anni sono un buon compromesso tra numero di dati e complessità computazionale, la seconda è obbligata dallo scopo del progetto.
+
+L'idea per trovare l'architettura migliore consiste nell'effettuare due prove di RNN molto semplici composte da un layer di input (in un caso LSTM e nell'altro GRU) e uno di output, confrontare il loro risultato e poi utilizzare AutoML per trovare architettura e iperparametri ottimali di una delle due. <br>
+
+Dalle analisi preliminari sembra che LSTM performi meglio rispetto a GRU per questo task, ci si concentra dunque su quell'architettura. <br>
+Il processo di AutoMl permette di ottimizzare gli iperparametri che in questo caso sono:
+
+* Numero layers LSTM 
+* Numero layers Dense
+* Numero neuroni layers LSTM
+* Numero neuroni layers Dense
+* Learning rate
+* Batch size
+
+Come risultato del processo è risultata una rete così composta: 
+
+1. LSTM(tanh) (layer input)
+2. LSTM(tanh)
+3. Dense(relu)
+4. Dense(relu)
+5. Dense(linear) (layer output)
+
+Nel processo di training è stata usata la callback $early$ $stopping$ con patience 2, il numero di epoche quindi è stato fissato ad un numero alto per far stoppare il processo di apprendimento in maniera automatica. La metrica obiettivo da minimizzare durante AutoML è il $MSE$, usando però la libreria pyGPGO che permette solo massimizzazioni di funzioni black box, la funzione utilizzata come valutazione del modello restituisce l'inverso del $MSE$ che alla fine verà nuovamente convertito nella forma corretta. La funzione di acquisizione utilizzata è l'$Expected$ $Improvement$ e il modello surrogato il random forest in quanto alcuni iperparametri sono valori interi.
+
+In tutte le prove è stato utilizzato l'ottimizzatore $Adam$ e come loss il $MSE$.
+
+<center>
+
+![Best seen AutoML](/home/federico/Desktop/Università/II_ANNO/Streaming Data Management/Esame/AutoML.png)
+
+</center>
+
+
+I risultati ottenuti dal modello dopo il processo di AutoML sono i seguenti:
+
+```{r}
+cat(paste0("NN MAPE train set: 20.41811823442015", 
+           "\n", "NN MSE train set: 572.547001927623"))
+```
+```{r}
+cat(paste0("NN MAPE test set: 18.3266778269870", 
+           "\n", "NN MSE test set: 815.4316568336255"))
+```
+
+
+Stranamente si nota che il MAPE sul train set è più alto di quello ottenuto sul test set.
+
+
+
+
+***
+
+# Conclusioni
+
+
+
+I risultati finali delle metodologie usate sono:
+
+
+<style type="text/css">
+.tg  {border-collapse:collapse;border-spacing:0;margin:0px auto;}
+.tg td{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
+  overflow:hidden;padding:10px 5px;word-break:normal;}
+.tg th{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
+  font-weight:normal;overflow:hidden;padding:10px 5px;word-break:normal;}
+.tg .tg-9wq8{border-color:inherit;text-align:center;vertical-align:middle}
+.tg .tg-baqh{text-align:center;vertical-align:top}
+.tg .tg-c3ow{border-color:inherit;text-align:center;vertical-align:top}
+.tg .tg-nrix{text-align:center;vertical-align:middle}
+@media screen and (max-width: 767px) {.tg {width: auto !important;}.tg col {width: auto !important;}.tg-wrap {overflow-x: auto;-webkit-overflow-scrolling: touch;margin: auto 0px;}}</style>
+<div class="tg-wrap"><table class="tg">
+<caption>Confronto risultati metodologie</caption>
+<thead>
+  <tr>
+    <th class="tg-c3ow">Model</th>
+    <th class="tg-c3ow" colspan="2">Arima</th>
+    <th class="tg-c3ow" colspan="2">UCM</th>
+    <th class="tg-c3ow" colspan="2">NN</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="tg-baqh">Metrica</td>
+    <td class="tg-baqh">MSE</td>
+    <td class="tg-baqh">MAPE (%)</td>
+    <td class="tg-baqh">MSE</td>
+    <td class="tg-baqh">MAPE (%)</td>
+    <td class="tg-baqh">MSE</td>
+    <td class="tg-baqh">MAPE (%)</td>
+  </tr>
+  <tr>
+    <td class="tg-c3ow">Train</td>
+    <td class="tg-9wq8">218.10</td>
+    <td class="tg-nrix">9.72</td>
+    <td class="tg-9wq8">257.70</td>
+    <td class="tg-nrix">10.39</td>
+    <td class="tg-9wq8">572.55</td>
+    <td class="tg-nrix">20.42</td>
+  </tr>
+  <tr>
+    <td class="tg-c3ow">Test</td>
+    <td class="tg-9wq8">540.30</td>
+    <td class="tg-nrix">14.17</td>
+    <td class="tg-9wq8">778.91</td>
+    <td class="tg-nrix">18.54</td>
+    <td class="tg-9wq8">815.43</td>
+    <td class="tg-nrix">18.33</td>
+  </tr>
+</tbody>
+</table></div>
+
+
+
+Dai risultati si può notare che la metodologia migliore è $ARIMA$ e che $UCM$ raggiunge risultati simili, la rete neurale invece ha performance molto inferiori.
+
+Per le previsioni finali: dal 01/01/2019 al 31/11/2019 i modelli $ARIMA$ e $UCM$ verranno fittati non solo sul train, ma su tutti i dati disponibili. Per la rete neurale invece il modello migliore viene allenato altre 25 epoche sui dati di test così da conferirgli maggior importanza essendo i dati più recenti disponibili.
+
+```{r, fig.align='center'}
+# ARIMA
+
+
+freq <- outer(1:(length(y)+334), 1:5)*2*pi/365.25
+
+cs   <- cos(freq)                   
+colnames(cs) <- paste("cos", 1:5)
+si   <- sin(freq)                   
+colnames(si) <- paste("sin", 1:5)
+sin_reg <- as.matrix(cbind(cs,si))
+
+
+mod_arima <- Arima(y, c(3,0,4), list(order=c(1,1,1), period=7), 
+                   xreg=sin_reg[1:(length(y)),], lambda = "auto")
+
+pred_arima <- forecast(mod_arima, h = 334, 
+                       xreg = sin_reg[(length(y)+1):(length(y)+334),])
+
+
+autoplot(ts(y["2018-01-01/"]), main = "Previsioni con ARIMA(3,0,4)(1,1,1)[7]") +
+  autolayer(ts(pred_arima$mean, start = 366, end = 366+334), 
+            series = "Previsioni") + 
+  ylab("Value")
+
+```
+
+
+```{r}
+# UCM
+
+mod_ucm <- SSModel(y ~ SSMtrend(1, NA) +
+                             SSMseasonal(7, NA, "dummy") +
+                             SSMseasonal(365, NA, "trig",
+                                         harmonics = 1:5),
+                   H = NA)
+
+# Si sistemano le condizioni iniziali per evitare diffusione
+vary <- var(y)
+mod_ucm$P1inf <- mod_ucm$P1inf * 0
+mod_ucm$a1[1] <- mean(y)
+diag(mod_ucm$P1) <- vary
+
+
+
+# Si fissano i valori iniziali delle varianze 
+pars <- numeric(5)
+pars[1] <- log(vary/10)       # Level
+pars[2] <- log(vary/100)      # Seasonal dummy
+pars[3] <- log(vary/100)      # Seasonal trig
+pars[4] <- log(vary/10)       # Obs error
+
+#funzione per fitSSM
+updt <- function(pars, model){
+    model$Q[1, 1, 1] <- exp(pars[1])
+    model$Q[2, 2, 1] <- exp(pars[2])
+    diag(model$Q[3:12, 3:12, 1]) <- exp(pars[4])
+    model$H[1, 1, 1] <- exp(pars[5])
+    model
+}
+
+ucm_fit <- fitSSM(mod_ucm, pars, updt)
+print(ucm_fit1$optim.out$convergence)
+
+```
+
+
+```{r, fig.align='center'}
+pred_ucm <- predict(ucm_fit$model, n.ahead = 334)
+autoplot(ts(y["2018-01-01/"]), main = "Previsioni con UCM") +
+  autolayer(ts(pred_ucm, start = 366, end = 366+334), series = "Previsioni") + 
+  ylab("Value")
+
+```
+
+
+
+Viene infine creato il file csv con le previsioni di ARIMA e UCM, le previsioni della rete neurale verranno aggiunte in seguuito.
+
+```{r}
+final = data.frame(Data = seq(as.Date("2019-01-01"), 
+                              by = "day", length.out = 334), 
+                   ARIMA = pred_arima$mean, UCM = pred_ucm[,1])
+
+
+write.csv(final, "SDMTSA_790032_0.csv", row.names = F)
+```
+
+Il grafico seguente mostra le previsioni delle tre metodologie sovrapposte, come ci si poteva aspettare dai risultati presentati in tabella, $ARIMA$ e $UCM$ producono un risultato molto simile, la $NN$ invece si discosta parecchio, probabilmente ciò è causato dall'ulteriore train effettuato sui dati di test.
+
+<center>
+
+![Previsioni delle tre metodologie](/home/federico/Desktop/Università/II_ANNO/Streaming Data Management/Esame/previsioni.png)
+
+</center>
+
+
+
